@@ -32,3 +32,30 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/register', 'register')->name('register.post');
     Route::post('/logout', 'logout')->name('logout');
 });
+
+// Admin Routes
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::controller(\App\Http\Controllers\AdminController::class)->group(function () {
+        Route::get('/dashboard', 'dashboard')->name('admin.dashboard');
+
+        // Categories
+        Route::get('/categories', 'categories')->name('admin.categories');
+        Route::get('/categories/create', 'createCategory')->name('admin.categories.create');
+        Route::post('/categories', 'storeCategory')->name('admin.categories.store');
+        Route::get('/categories/{id}/edit', 'editCategory')->name('admin.categories.edit');
+        Route::post('/categories/{id}', 'updateCategory')->name('admin.categories.update');
+        Route::delete('/categories/{id}', 'deleteCategory')->name('admin.categories.delete');
+
+        // Products
+        Route::get('/products', 'products')->name('admin.products');
+        Route::get('/products/create', 'createProduct')->name('admin.products.create');
+        Route::post('/products', 'storeProduct')->name('admin.products.store');
+        Route::get('/products/{id}/edit', 'editProduct')->name('admin.products.edit');
+        Route::post('/products/{id}', 'updateProduct')->name('admin.products.update');
+        Route::delete('/products/{id}', 'deleteProduct')->name('admin.products.delete');
+
+        // Orders
+        Route::get('/orders', 'orders')->name('admin.orders');
+        Route::post('/orders/{id}/status', 'updateOrderStatus')->name('admin.orders.status');
+    });
+});

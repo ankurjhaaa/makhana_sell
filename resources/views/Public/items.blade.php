@@ -2,10 +2,10 @@
 @section('title', 'All Products')
 
 @section('content')
-    <section class="py-12 bg-white">
+    <section class="py-5 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- Page Header -->
-            <div class="mb-12 border-b border-gray-100 pb-8">
+            <div class="mb-3 border-b border-gray-100  md:pb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Our Collection</h1>
                 <p class="text-gray-500">Explore our variety of healthy and crispy Makhana.</p>
             </div>
@@ -50,7 +50,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
                         @forelse($products as $product)
-                            <div class="group">
+                            <div class="group border border-primary/20 p-4 rounded-lg">
                                 <div class="relative overflow-hidden rounded-md bg-gray-100 mb-4 aspect-square">
                                     <img src="{{ $product->mainImage->image_path ?? '' }}" alt="{{ $product->name }}"
                                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
