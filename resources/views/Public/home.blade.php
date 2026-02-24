@@ -90,24 +90,24 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 @foreach($products as $product)
-                    <div class="group">
+                    <div class="group border border-primary/20 p-4 rounded-xl">
                         <div class="relative overflow-hidden rounded-md bg-gray-100 mb-4 aspect-square">
-                            <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}"
+                            <img src="{{ $product->mainImage->image_path ?? '' }}" alt="{{ $product->name }}"
                                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                             <div class="absolute top-4 right-4">
                                 <span
                                     class="bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-primary border border-green-100">
-                                    {{ $product['category'] }}
+                                    {{ $product->category->name ?? 'General' }}
                                 </span>
                             </div>
                         </div>
                         <h3 class="text-xl font-bold text-gray-900 mb-1 group-hover:text-primary transition-colors">
-                            {{ $product['name'] }}</h3>
+                            {{ $product->name }}</h3>
                         <div class="flex justify-between items-center">
-                            <span class="text-lg font-bold text-gray-900">₹{{ $product['price'] }}</span>
-                            <span class="text-gray-400 text-sm">{{ $product['weight'] }}</span>
+                            <span class="text-lg font-bold text-gray-900">₹{{ $product->price }}</span>
+                            <span class="text-gray-400 text-sm">{{ $product->weight }}</span>
                         </div>
-                        <a href="{{ route('item', $product['id']) }}"
+                        <a href="{{ route('item', $product->slug) }}"
                             class="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-gray-100 rounded-md text-sm font-medium text-primary bg-white hover:bg-primary hover:text-white transition-all">
                             View Details
                         </a>
@@ -124,7 +124,7 @@
     </section>
 
     <!-- Newsletter -->
-    <section class="py-16 bg-primary text-white">
+    <!-- <section class="py-16 bg-primary text-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 class="text-3xl font-bold mb-4">Stay Healthy, Stay Crunchy</h2>
             <p class="text-green-100 mb-8 max-w-xl mx-auto">Subscribe to get updates on new launches and exclusive offers on
@@ -138,5 +138,5 @@
                 </button>
             </form>
         </div>
-    </section>
+    </section> -->
 @endsection

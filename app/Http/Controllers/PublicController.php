@@ -2,91 +2,228 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CartItem;
+use App\Models\Category;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Review;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class PublicController extends Controller
 {
-    protected function getProducts()
-    {
-        return [
-            [
-                'id' => 1,
-                'name' => 'Premium Phool Makhana',
-                'price' => 299,
-                'description' => 'Large size, handpicked premium fox nuts. perfect for snacking.',
-                'image' => 'https://images.unsplash.com/photo-1620912189865-1e8a33da4c5e?q=80&w=800&auto=format&fit=crop',
-                'weight' => '250g',
-                'category' => 'Classic'
-            ],
-            [
-                'id' => 2,
-                'name' => 'Roasted Peri Peri Makhana',
-                'price' => 349,
-                'description' => 'Spicy and tangy roasted makhana with authentic Peri Peri spices.',
-                'image' => 'https://images.unsplash.com/photo-1599490659223-ef37651c0bb5?q=80&w=800&auto=format&fit=crop',
-                'weight' => '150g',
-                'category' => 'Spicy'
-            ],
-            [
-                'id' => 3,
-                'name' => 'Cheese & Herbs Makhana',
-                'price' => 349,
-                'description' => 'Creamy cheese flavor with aromatic herbs for a gourmet experience.',
-                'image' => 'https://images.unsplash.com/photo-1614735241165-6756e1df61ab?q=80&w=800&auto=format&fit=crop',
-                'weight' => '150g',
-                'category' => 'Gourmet'
-            ],
-            [
-                'id' => 4,
-                'name' => 'Himalayan Salted Makhana',
-                'price' => 319,
-                'description' => 'Lightly roasted with pure Himalayan pink salt for a healthy crunch.',
-                'image' => 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=800&auto=format&fit=crop',
-                'weight' => '200g',
-                'category' => 'Healthy'
-            ],
-            [
-                'id' => 5,
-                'name' => 'Caramel Crunch Makhana',
-                'price' => 399,
-                'description' => 'Sweet and crunchy makhana coated with rich buttery caramel.',
-                'image' => 'https://images.unsplash.com/photo-1585184394271-4c0a47dc59c9?q=80&w=800&auto=format&fit=crop',
-                'weight' => '150g',
-                'category' => 'Sweet'
-            ],
-        ];
-    }
-
     public function home()
     {
-        $products = collect($this->getProducts())->take(3);
+        $products = Product::with('mainImage')->take(3)->get();
         return view("Public.home", compact('products'));
     }
 
-    public function items()
+    public function items(Request $request)
     {
-        $products = $this->getProducts();
-        return view("Public.items", compact('products'));
+        $query = Product::with('mainImage');
+
+        if ($request->has('category')) {
+            $query->whereHas('category', function ($q) use ($request) {
+                $q->where('slug', $request->category);
+            });
+        }
+
+        $products = $query->get();
+        $categories = Category::all();
+
+        return view("Public.items", compact('products', 'categories'));
     }
 
-    public function item($id)
+    public function item($slug)
     {
-        $product = collect($this->getProducts())->firstWhere('id', $id);
-        if (!$product)
-            abort(404);
+        $product = Product::with(['category', 'images'])->where('slug', $slug)->firstOrFail();
         return view("Public.item-view", compact('product'));
+    }
+
+    public function addToCart(Request $request, $productId)
+    {
+        $product = Product::findOrFail($productId);
+
+        $cartItem = CartItem::where([
+            'user_id' => Auth::id(),
+            'product_id' => $product->id,
+            'type' => 'cart'
+        ])->first();
+
+        if ($cartItem) {
+            $cartItem->increment('quantity', $request->quantity ?? 1);
+        } else {
+            CartItem::create([
+                'user_id' => Auth::id(),
+                'product_id' => $product->id,
+                'quantity' => $request->quantity ?? 1,
+                'price' => $product->price,
+                'type' => 'cart'
+            ]);
+        }
+
+        return redirect()->route('cart')->with('success', 'Product added to cart!');
     }
 
     public function cart()
     {
-        // Using first two products as dummy cart items
-        $cartItems = collect($this->getProducts())->take(2);
+        $cartItems = CartItem::with('product.mainImage')
+            ->where('user_id', Auth::id())
+            ->where('type', 'cart')
+            ->get();
+
         return view("Public.cart", compact('cartItems'));
     }
 
     public function checkout()
     {
-        $cartItems = collect($this->getProducts())->take(2);
+        $cartItems = CartItem::with('product.mainImage')
+            ->where('user_id', Auth::id())
+            ->where('type', 'cart')
+            ->get();
+
+        if ($cartItems->isEmpty())
+            return redirect()->route('items');
+
         return view("Public.cheakout", compact('cartItems'));
+    }
+
+    public function placeOrder(Request $request)
+    {
+        $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
+            'address' => 'required|string',
+            'address_line2' => 'nullable|string',
+            'city' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'pincode' => 'required|string|max:10',
+            'payment_method' => 'required',
+        ]);
+
+        $cartItems = CartItem::where('user_id', Auth::id())
+            ->where('type', 'cart')
+            ->get();
+
+        if ($cartItems->isEmpty())
+            return redirect()->route('items');
+
+        $total = $cartItems->sum(function ($item) {
+            return $item->price * $item->quantity;
+        });
+
+        $order = Order::create([
+            'user_id' => Auth::id(),
+            'total_amount' => $total,
+            'customer_name' => $request->customer_name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'address_line2' => $request->address_line2,
+            'city' => $request->city,
+            'state' => $request->state,
+            'country' => 'India', // Default for now
+            'pincode' => $request->pincode,
+            'payment_method' => $request->payment_method,
+            'status' => 'pending'
+        ]);
+
+        foreach ($cartItems as $item) {
+            /** @var \App\Models\CartItem $item */
+            $item->update([
+                'type' => 'order',
+                'order_id' => $order->id
+            ]);
+        }
+
+        return redirect()->route('success', ['order' => $order->id]);
+    }
+
+    public function success(Request $request)
+    {
+        $order = Order::with('items.product')->findOrFail($request->order);
+        return view("Public.success", compact('order'));
+    }
+
+    public function updateCartQuantity(Request $request)
+    {
+        $cartItem = CartItem::where('user_id', Auth::id())
+            ->where('id', $request->id)
+            ->first();
+
+        if ($cartItem) {
+            $cartItem->update(['quantity' => $request->quantity]);
+
+            $total = CartItem::where('user_id', Auth::id())->where('type', 'cart')->get()->sum(fn($i) => $i->price * $i->quantity);
+
+            return response()->json([
+                'success' => true,
+                'item_total' => $cartItem->price * $cartItem->quantity,
+                'cart_total' => $total
+            ]);
+        }
+        return response()->json(['success' => false], 404);
+    }
+
+    public function removeFromCart(Request $request)
+    {
+        $cartItem = CartItem::where('user_id', Auth::id())
+            ->where('id', $request->id)
+            ->first();
+
+        if ($cartItem) {
+            $cartItem->delete();
+            $total = CartItem::where('user_id', Auth::id())->where('type', 'cart')->get()->sum(fn($i) => $i->price * $i->quantity);
+            return response()->json([
+                'success' => true,
+                'cart_total' => $total,
+                'cart_count' => CartItem::where('user_id', Auth::id())->where('type', 'cart')->count()
+            ]);
+        }
+        return response()->json(['success' => false], 404);
+    }
+
+    public function myOrders()
+    {
+        $orders = Order::where('user_id', Auth::id())->latest()->get();
+        return view("Public.orders", compact('orders'));
+    }
+
+    public function orderDetail($id)
+    {
+        $order = Order::with('items.product')->where('user_id', Auth::id())->findOrFail($id);
+        return view("Public.order-detail", compact('order'));
+    }
+
+    public function storeReview(Request $request, $id)
+    {
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000',
+        ]);
+
+        Review::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'product_id' => $id
+            ],
+            [
+                'rating' => $request->rating,
+                'comment' => $request->comment
+            ]
+        );
+
+        return back()->with('success', 'Thank you for your rating!');
+    }
+
+    public function profile()
+    {
+        return view("Public.profile");
+    }
+
+    public function account()
+    {
+        return view("Public.mobile-profile");
     }
 }
